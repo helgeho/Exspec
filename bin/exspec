@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+
+require "exspec"
+
+if ARGV.empty?
+  started = Exspec::Extension.start_exspec
+  Exspec::IrbExspec.start_irb unless started
+else
+  exspec = Exspec::Exspec.new
+
+  spec_arg = ARGV.join " "
+  spec = exspec.spec spec_arg
+
+  reporter = Exspec::REGRESSION_TEST_REPORTER.new
+  if !spec.nil? && spec.exist?
+    exspec.report_to(reporter) { exspec.run_stack spec }
+  else
+    specs = exspec.specs spec_arg, true
+    specs.each do |spec|
+      spec.stack.each do |parent|
+        if parent != spec
+          specs.delete(parent)
+        end
+      end
+    end
+    exspec.report_to(reporter) { exspec.run_specs specs }
+  end
+
+  failed = reporter.failed
+  puts "#{failed.length} of #{reporter.specs.length} specs failed" + (failed.empty? ? "!" : ":")
+  reporter.failed.each do |spec|
+    puts "- #{spec.full_description}"
+  end
+end
