@@ -6,7 +6,7 @@ module Exspec
       @exspec = exspec
     end
 
-    delegate :puts, :print, :return_spec, :context, :commit, :to => :@exspec
+    delegate :puts, :print, :return_spec, :context, :commit, :commited?, :without_logging, :value_or_exception, :to => :@exspec
     attr_reader :exspec
 
     def eval(instruction, &callback_block)
@@ -22,7 +22,7 @@ module Exspec
         param_string = parts[1..-1].join " "
         eval = false
         val = Extension.execute_command self, command, param_string, callbacks
-        if val.nil?
+        if val.nil? && !commited?
           val = case command
                   when ""
                     execute(command, parameters(param_string), callbacks) do
@@ -127,6 +127,10 @@ module Exspec
                   when "reset", "clear"
                     execute(command, callbacks) do
                       exspec.reset
+                      Extension.test_hook(:after, nil)
+                      Extension.test_hook(:after_stack, nil)
+                      Extension.test_hook(:before_stack, nil)
+                      Extension.test_hook(:before, nil)
                     end
                   when "log", "instructions", "history"
                     execute(command, callbacks) do
@@ -149,9 +153,11 @@ module Exspec
                       end
                     end
                   when "no_log", "without_logging", "silent", "no_history"
-                    val = exspec.without_logging { exspec.execute param_string }
-                    return_spec exspec.logger.last_value
-                    val
+                    execute(command, parameters(param_string), callbacks) do
+                      val = without_logging { eval param_string }
+                      return_spec exspec.logger.last_value
+                      val
+                    end
                   when "log_off", "disable_log", "history_off", "disable_history"
                     execute(command, callbacks) do
                       exspec.logger.enabled = false

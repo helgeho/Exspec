@@ -4,7 +4,7 @@ class Spec
   def self.name(description)
     name = File.basename(description, File.extname(description))
     name = name.split(".").last.strip
-    name.gsub(/ +/, "_").underscore
+    name.underscore.gsub(/[\W_]+/, "_")
   end
 
   def initialize(spec_manager, name, file, parent=nil)

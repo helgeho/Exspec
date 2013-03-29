@@ -7,10 +7,11 @@ require_relative "exspec/logger"
 require_relative "exspec/spec_runner"
 require_relative "exspec/reporter"
 require_relative "exspec/regression_test_reporter"
-require_relative "exspec/helpers"
+require_relative "exspec/helpers/helpers"
 require_relative "exspec/extensions/extension"
 require_relative "exspec/extensions/mocking"
 require_relative "exspec/extensions/rails"
+require_relative "exspec/extensions/capybara"
 parent_dirs do |parent_dir|
   configured = false
   ["exspec.rb", "config/exspec.rb", "exspec/config.rb", "exspec/exspec.rb"].each do |file|
@@ -31,7 +32,7 @@ module Exspec
       :regression_test_reporter => RegressionTestReporter
     }
     Extension.config config
-    config
+    @@config = config
   end
 
   TEST_DIR = File.expand_path(config[:test_dir])
@@ -52,6 +53,8 @@ module Exspec
       @logger = components[:logger] || Logger.new
       @runner = components[:runner] || SpecRunner.new(self)
       @reporter = components[:reporter] || Reporter.new
+      @execute_stack = []
+      Extension.initialized_exspec self
     end
 
     delegate :without_logging, :last_instruction, :erase_last_instruction, :log, :to => :@logger
@@ -68,17 +71,19 @@ module Exspec
     end
 
     def execute(instruction)
+      @execute_stack << false
       executor.eval instruction do |callbacks|
         callbacks.after do |command, params, value|
           context.last_exspec_value = value
           if command.nil?
             commit instruction, value
           end
-          if last_exspec_value != last_value || command == "_" || command == ""
+          if @execute_stack.length == 1 && (last_exspec_value != last_value || command == "_" || command == "")
             puts "#{COMMAND_PREFIX}_: #{last_exspec_value.inspect}"
           end
         end
       end
+      @execute_stack.pop
     end
 
     def report_to(reporter=reporter)
@@ -96,15 +101,24 @@ module Exspec
 
     def save(description, comment=nil)
       comment(comment) unless comment.nil?
-      spec_manager.save logger, description
+      spec = spec_manager.save logger, description
+      Extension.test_hook(:after, spec)
+      Extension.test_hook(:before, nil)
+      spec
     end
 
     def load(description)
+      Extension.test_hook(:after, nil)
+      Extension.test_hook(:after_stack, nil)
       reset
       spec = spec(description)
-      return nil if spec.nil?
-      without_logging { runner.run_stack spec }
-      spec_manager.current_spec = spec
+      Extension.test_hook(:before_stack, nil)
+      unless spec.nil?
+        without_logging { runner.run_stack spec }
+        spec_manager.current_spec = spec
+      end
+      Extension.test_hook(:before, nil)
+      spec
     end
 
     def include(description)
@@ -118,6 +132,7 @@ module Exspec
     def retry
       instructions = logger.instructions
       load current_spec
+      Extension.test_hook(:before, nil)
       instructions.each do |instruction|
         execute instruction rescue nil
       end
@@ -143,11 +158,16 @@ module Exspec
     end
 
     def assert(statement=nil, comment=nil)
-      val = without_logging { raw_eval statement }
-      if val
-        spec_succeeded "Successful: #{comment || statement}"
-      else
-        spec_failed "Failed: #{comment || statement}"
+      begin
+        val = without_logging { raw_eval statement }
+        if val
+          spec_succeeded "Successful: #{comment || statement}"
+        else
+          spec_failed "Failed: #{comment || statement}"
+        end
+      rescue Exception => e
+        val = e
+        spec_failed "Failed due to an exception: #{comment || statement} (#{e})"
       end
       commit "#{COMMAND_PREFIX}assert #{statement.strip}" + (comment ? " #{COMMENT_SIGN}#{comment}" : "")
       val
@@ -156,7 +176,7 @@ module Exspec
     def expect(statement=nil, comment=nil)
       return expect_inspect nil, comment if statement.nil?
       actual = last_value
-      expect = without_logging { raw_eval statement }
+      expect = value_or_exception { without_logging { raw_eval statement } }
       if expect == actual
         spec_succeeded "Successful: #{comment || "value is #{prepare_output(expect)}"}"
       else
@@ -195,7 +215,12 @@ module Exspec
       last_value.is_a?(String) ? last_value : last_value.inspect
     end
 
+    def commited?
+      @execute_stack.last
+    end
+
     def commit(instruction, value=last_value)
+      @execute_stack[@execute_stack.length - 1] = true unless @execute_stack.empty?
       logger.log instruction, value
       return_spec value
     end
@@ -208,6 +233,15 @@ module Exspec
       return "nil" if value.nil?
       return "\"#{value}\"" if value.is_a? String
       value
+    end
+
+    def value_or_exception
+      begin
+        val = yield
+      rescue Exception => e
+        val = e
+      end
+      val
     end
   end
 end

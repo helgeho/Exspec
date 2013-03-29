@@ -1,3 +1,5 @@
+require_relative "context_delegator"
+
 def parent_dirs
   root = File.expand_path "/"
   level = 0

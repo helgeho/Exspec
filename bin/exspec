@@ -1,14 +1,29 @@
 #!/usr/bin/env ruby
 
-require "exspec"
+ARG_PREFIX = "--"
+DEBUG_ARG = "debug"
 
-if ARGV.empty?
+spec_args = ARGV.take_while { |arg| !arg.start_with?(ARG_PREFIX) }
+ARGV.shift spec_args.length
+debug = ARGV.delete ARG_PREFIX + DEBUG_ARG
+
+if debug
+  require_relative "../lib/exspec"
+else
+  require "exspec"
+end
+
+if spec_args.empty?
+  Exspec::Extension.test_hook(:before_stack, nil)
+  Exspec::Extension.test_hook(:before, nil)
   started = Exspec::Extension.start_exspec
   Exspec::IrbExspec.start_irb unless started
+  Exspec::Extension.test_hook(:after, nil)
+  Exspec::Extension.test_hook(:after_stack, nil)
 else
   exspec = Exspec::Exspec.new
 
-  spec_arg = ARGV.join " "
+  spec_arg = spec_args.join " "
   spec = exspec.spec spec_arg
 
   reporter = Exspec::REGRESSION_TEST_REPORTER.new
@@ -18,9 +33,7 @@ else
     specs = exspec.specs spec_arg, true
     specs.each do |spec|
       spec.stack.each do |parent|
-        if parent != spec
-          specs.delete(parent)
-        end
+        specs.delete(parent) if parent != spec
       end
     end
     exspec.report_to(reporter) { exspec.run_specs specs }

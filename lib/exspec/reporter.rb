@@ -8,7 +8,10 @@ module Exspec
     def executed_instruction(instruction, index, line); end
     def exception(exception); end
     def skip_signal(breaking); end
-    def show_comment(text); end
+
+    def show_comment(text)
+      puts text
+    end
 
     def puts(text)
       Kernel.puts text

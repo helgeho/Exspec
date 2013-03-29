@@ -108,8 +108,8 @@ In addition to showing the menus, commands like `!history` and `!specs` return t
 
 ## Mocking
 
-Exspec provides a very ease to use yet powerful way for writing mocks / stubs.
-Calling `!mock` or `!stub` (which are synonyms in Exspec) gives you an Exspec Mock object or assigns it to a variable when you specify one by calling `!mock var_name`. A mock keeps track of all method calls on it and returns a new mock for each non-defined methods. Also, it saves values that get defined to an attribute of the mock and returns it on accessing the same attribute method later.
+Exspec provides a very ease to use yet powerful way to writing mocks / stubs.
+Calling `!mock` or `!stub` (which are synonyms in Exspec) gives you an Exspec Mock object or assigns it to a variable when you specify one by calling `!mock var_name`. A mock keeps track of all method calls on it and returns a new mock for each non-defined method. Also, it saves values that get defined to an attribute of the mock and returns it on accessing the same attribute method later.
 
 For stubbing particular methods you can define those on your mock as follows:
 
@@ -132,7 +132,7 @@ A mock also provides methods to access its child mocks returned by calling an un
 
 ## Test-driven development
 
-Besides testing existing code Exspec is also well-suited for test-driven development. Just write your spec as normal (see above) until one of your assertions fails. Now you can use the `!retry` command to rerun your spec to this point. If you have set up Exspec to load your code automatically in the `setup_context` callback as shown below (see *Extensions*), Exspec will reload your code by calling `!rety`. So it is possible to change your code and rerun your spec over and over again until your assertion passes. Then proceed writing your spec until you reach the next failed assertion.
+Besides testing existing code Exspec is also well-suited for test-driven development. Just write your spec as normal (see above) until one of your assertions fails. Now you can use the `!retry` command to rerun your spec to this point. If you have set up Exspec to load your code automatically in the `setup_context` callback as shown below (see *Extensions*), Exspec will reload your code by calling `!retry`. So it is possible to change your code and rerun your spec over and over again until your assertion passes. Then proceed writing your spec until you reach the next failed assertion.
 
 # Running specs
 
@@ -167,7 +167,8 @@ module MyAppExspecExtension
     case command # custom commands
       when "hello" # call it with `!hello world`
         execute(command, parameters(param_string), options) do |params|
-          "hello #{params[0]}!"
+          value = "Hello #{params[0]}!"
+          commit "!hello #{param_string}", value # return to IRB
         end
     end
   end

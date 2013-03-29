@@ -62,7 +62,11 @@ module Exspec
     def setup_global_context
       global_instance = global_eval "self"
       global_instance.instance_variable_set :@exspec, @exspec
-      global_instance.class.send :attr_reader, :exspec
+      class << global_instance
+        def exspec
+          @exspec
+        end
+      end
       global_eval "_ = nil"
       Extension.setup_global_context self, global_instance
     end

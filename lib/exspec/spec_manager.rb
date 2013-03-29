@@ -51,8 +51,8 @@ module Exspec
     def specs(parent=current_spec, recursive=false)
       parent = "" if parent.nil?
       if parent.is_a?(String)
-        parent = parent.strip
-        relative_directory = current_spec.nil? ? TEST_DIR : current_spec.directory
+        parent.strip!
+        relative_directory = parent.start_with?(SPEC_SEPARATOR) || current_spec.nil? ? TEST_DIR : current_spec.directory
         parent_directory = File.expand_path(parent, relative_directory)
         return find_specs(parent_directory, recursive) if File.directory?(parent_directory)
       end
@@ -84,7 +84,7 @@ module Exspec
         if File.directory? file
           specs.push(*find_specs(file, recursively)) if recursively
         elsif file.end_with? SPEC_EXTENSION
-          specs << create_spec(file)
+          specs << create_spec(file, nil)
         end
       end
       specs

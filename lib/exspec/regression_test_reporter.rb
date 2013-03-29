@@ -64,7 +64,7 @@ module Exspec
       print_indented "."
     end
 
-    def skip_signal
+    def skip_signal(breaking)
       raise SkipSignal
     end
 
@@ -81,9 +81,7 @@ module Exspec
     end
 
     def exception(exception)
-      if exception.is_a?(SpecFailedError)
-        raise exception
-      end
+      raise exception if exception.is_a? SpecFailedError
     end
 
     def show_comment(text)
